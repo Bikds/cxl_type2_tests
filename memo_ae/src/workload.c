@@ -15,9 +15,17 @@
 
 // change me to use different size of AVX
 //#define SIZENTLD_MACRO SIZENTLD_512_AVX512
-#define SIZENTLD_MACRO SIZENTLD_1024_AVX512
-#define SIZELD_MACRO   SIZELD_1024_AVX512
-#define SIZEST_MACRO   SIZEST_1024_AVX512
+// #define SIZENTLD_MACRO SIZENTLD_1024_AVX512
+// #define SIZELD_MACRO   SIZELD_1024_AVX512
+// #define SIZEST_MACRO   SIZEST_1024_AVX512
+#define SIZENTLD_SEQ_MACRO SIZENTLD_1024_AVX512
+#define SIZELD_SEQ_MACRO   SIZELD_1024_AVX512
+#define SIZEST_SEQ_MACRO   SIZEST_1024_AVX512
+#define SIZENTST_SEQ_MACRO SIZENTST_1024_AVX512
+#define SIZELD_MACRO SIZELD_RAND_1024_AVX512
+#define SIZEST_MACRO   SIZEST_RAND_1024_AVX512
+#define SIZENTLD_MACRO SIZENTLD_RAND_1024_AVX512
+#define SIZENTST_MACRO SIZENTST_RAND_1024_AVX512
 #define SIZEMOV_MACRO  SIZEMOV_1024
 //#define SIZEST_MACRO   SIZEST_WB_1024_AVX512
 
@@ -46,6 +54,36 @@ void op_ntld(char* addr, long size){
             SIZENTLD_MACRO	
             "cmp %[size], %%r10 \n"
             "jl LOOP_NTLD \n"
+            : /* output */
+            :[size]"r"(size), [addr]"r"(addr) /* input */
+            :"%r9", "%r10" /* clobbered register */
+            );
+}
+
+/**
+ * op_seq_ntld
+ *   @brief Load the given size data from the memory with non-temporal hint.
+ *   @param addr  the load start address
+ *   @param size   		the size of the memory we want to access (in byte)
+ *   @return none
+ */
+void op_seq_ntld(char* addr, long size){
+    /* by default we perform load in 512 byte granularity */
+    /* sanity check */
+    if(size < MIN_GRANULARITY){
+        fprintf(stderr, RED "[ERROR]" RESET "op_seq_ntld(): buffer size is smaller than %d byte.", MIN_GRANULARITY);
+        exit(1);
+    }
+    /* round down to MIN_GRANULARITY */
+    size = size - (size % MIN_GRANULARITY);
+
+    asm volatile(
+            "mov %[addr], %%r9 \n"
+            "xor %%r10, %%r10 \n"
+            "LOOP_SEQ_NTLD: \n"
+            SIZENTLD_SEQ_MACRO	
+            "cmp %[size], %%r10 \n"
+            "jl LOOP_SEQ_NTLD \n"
             : /* output */
             :[size]"r"(size), [addr]"r"(addr) /* input */
             :"%r9", "%r10" /* clobbered register */
@@ -83,6 +121,36 @@ void op_ld(char* addr, long size){
 }
 
 /**
+ * op_seq_ld
+ *   @brief Load the given size data from the memory with non-temporal hint.
+ *   @param addr  the load start address
+ *   @param size   		the size of the memory we want to access (in byte)
+ *   @return none
+ */
+void op_seq_ld(char* addr, long size){
+    /* by default we perform load in 512 byte granularity */
+    /* sanity check */
+    if(size < MIN_GRANULARITY){
+        fprintf(stderr, RED "[ERROR]" RESET "op_seq_ld(): buffer size is smaller than %d byte.", MIN_GRANULARITY);
+        exit(1);
+    }
+    /* round down to MIN_GRANULARITY*/
+    size = size - (size % MIN_GRANULARITY);
+
+    asm volatile(
+            "mov %[addr], %%r9 \n"
+            "xor %%r10, %%r10 \n"
+            "LOOP_SEQ_LD: \n"
+            SIZELD_SEQ_MACRO	
+            "cmp %[size], %%r10 \n"
+            "jl LOOP_SEQ_LD \n"
+            : /* output */
+            :[size]"r"(size), [addr]"r"(addr) /* input */
+            :"%r9", "%r10", ZMM_0_15 /* clobbered register */
+            );
+}
+
+/**
  * op_ntst
  *   @brief Store the given size data to the memory with non-temporal hint.
  *   @param addr the store start address
@@ -103,9 +171,40 @@ void op_ntst(char* addr, long size){
             "mov %[addr], %%r9 \n"
             "xor %%r10, %%r10 \n"
             "LOOP_NTST: \n"
-            SIZENTST_1024_AVX512
+            SIZENTST_MACRO
             "cmp %[size], %%r10 \n"
             "jl LOOP_NTST \n"
+            "sfence \n"
+            : /* output */
+            :[size]"r"(size), [addr]"r"(addr) /* input */
+            :"%r9", "%r10", ZMM_0_15 /* clobbered register */
+            );
+}
+
+/**
+ * op_seq_ntst
+ *   @brief Store the given size data to the memory with non-temporal hint.
+ *   @param addr the store start address
+ *   @param size	   the size of the memory we want to store (in byte)
+ *   @return none
+ */
+void op_seq_ntst(char* addr, long size){
+    /* by default we perform load in 512 byte granularity */
+    /* sanity check */
+    if(size < MIN_GRANULARITY){
+        fprintf(stderr, RED "[ERROR]" RESET "op_seq_ntst(): buffer size is smaller than %d byte.", MIN_GRANULARITY);
+        exit(1);
+    }
+    /* round down to MIN_GRANULARITY*/
+    size = size - (size % MIN_GRANULARITY);
+
+    asm volatile(
+            "mov %[addr], %%r9 \n"
+            "xor %%r10, %%r10 \n"
+            "LOOP_SEQ_NTST: \n"
+            SIZENTST_SEQ_MACRO
+            "cmp %[size], %%r10 \n"
+            "jl LOOP_SEQ_NTST \n"
             "sfence \n"
             : /* output */
             :[size]"r"(size), [addr]"r"(addr) /* input */
@@ -137,6 +236,36 @@ void op_st(char* addr, long size){
             SIZEST_MACRO
             "cmp %[size], %%r10 \n"
             "jl LOOP_ST \n"
+            : /* output */
+            :[size]"r"(size), [addr]"r"(addr) /* input */
+            :REGISTERS, "%r10" /* clobbered register */
+            );
+}
+
+/**
+ * op_seq_st
+ *   @brief Store the given size data to the memory with non-temporal hint.
+ *   @param addr the store start address
+ *   @param size	   the size of the memory we want to store (in byte)
+ *   @return none
+ */
+void op_seq_st(char* addr, long size){
+    /* by default we perform load in 512 byte granularity */
+    /* sanity check */
+    if(size < MIN_GRANULARITY){
+        fprintf(stderr, RED "[ERROR]" RESET "op_seq_st(): buffer size is smaller than %d byte.", MIN_GRANULARITY);
+        exit(1);
+    }
+    /* round down to MIN_GRANULARITY*/
+    size = size - (size % MIN_GRANULARITY);
+
+    asm volatile(
+            "mov %[addr], %%r9 \n"
+            "xor %%r10, %%r10 \n"
+            "LOOP_SEQ_ST: \n"
+            SIZEST_SEQ_MACRO
+            "cmp %[size], %%r10 \n"
+            "jl LOOP_SEQ_ST \n"
             : /* output */
             :[size]"r"(size), [addr]"r"(addr) /* input */
             :REGISTERS, "%r10" /* clobbered register */
@@ -299,10 +428,22 @@ uint64_t op_ntld_32B_lat(char* addr){
 uint64_t op_ntld_64B_lat(char* addr){
     uint64_t t_start = 0, t_end = 0;
 
+    // Print the pointer addr
+    printf("op_ld_64B_lat addr: %p\n", addr);
+
     /* make sure address is 64byte aligned (what will happen if not?) */
     addr = (char*)((uint64_t)addr & (~0x3F));
 
     asm volatile(
+            "mov %[addr], %%rsi\n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%rsi \n"
+            // "mfence\n"
+            "vmovdqa 0*32(%%rsi), %%ymm0 \n"
+            "vmovdqa 1*32(%%rsi), %%ymm1 \n"
+            // Cache line flush
+            "clflush 0*32(%%rsi) \n"
+            "clflush 1*32(%%rsi) \n"
             "mov %[addr], %%rsi\n"
             "mfence\n"
             FLUSH_CACHE_LINE
@@ -312,7 +453,7 @@ uint64_t op_ntld_64B_lat(char* addr){
             TIMING_END
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr)
-            :REGISTERS
+            :REGISTERS, "%r13"
             );
 
     return (t_end - t_start);
@@ -333,12 +474,23 @@ uint64_t op_ntst_64B_lat(char* addr){
 
     asm volatile(
             "mov %[addr], %%rsi\n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%rsi \n"
+            // Cache line flush
+            "clflush 0*32(%%rsi) \n"
+            "clflush 1*32(%%rsi) \n"
+            "mfence\n"
+            "vmovdqa 0*32(%%rsi), %%ymm0 \n"
+            "vmovdqa 1*32(%%rsi), %%ymm1 \n"
+            "mov %[addr], %%rsi\n"
             "mfence\n"
             FLUSH_CACHE_LINE
             CLEAR_PIPELINE
             TIMING_BEGIN
             "vmovntpd %%ymm0, 0*32(%%rsi) \n"
             "vmovntpd %%ymm1, 1*32(%%rsi) \n"
+            "clwb 0*32(%%rsi) \n"
+            "clwb 1*32(%%rsi) \n"
 
             TIMING_END
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
@@ -358,10 +510,22 @@ uint64_t op_ntst_64B_lat(char* addr){
 uint64_t op_ld_64B_lat(char* addr){
     uint64_t t_start = 0, t_end = 0;
 
+    // Print the pointer addr
+    printf("op_ld_64B_lat addr: %p\n", addr);
+
     /* make sure address is 64byte aligned (what will happen if not?) */
     addr = (char*)((uint64_t)addr & (~0x3F));
 
     asm volatile(
+            "mov %[addr], %%rsi\n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%rsi \n"
+            "vmovdqa 0*32(%%rsi), %%ymm0 \n"
+            "vmovdqa 1*32(%%rsi), %%ymm1 \n"
+            // Cache line flush
+            "clflush 0*32(%%rsi) \n"
+            "clflush 1*32(%%rsi) \n"
+            "mfence\n"
             "mov %[addr], %%rsi\n"
             "mfence\n"
             FLUSH_CACHE_LINE
@@ -372,7 +536,7 @@ uint64_t op_ld_64B_lat(char* addr){
             TIMING_END
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr)
-            :REGISTERS
+            :REGISTERS, "%r13"
             );
 
     return (t_end - t_start);
@@ -392,17 +556,29 @@ uint64_t op_st_64B_lat(char* addr){
 
     asm volatile(
             "mov %[addr], %%rsi\n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%rsi \n"
+            // Cache line flush
+            "clflush 0*32(%%rsi) \n"
+            "clflush 1*32(%%rsi) \n"
+            "mfence\n"
+            // Load the data from the memory
+            "vmovdqa 0*32(%%rsi), %%ymm0 \n"
+            "vmovdqa 1*32(%%rsi), %%ymm1 \n"
+            "mov %[addr], %%rsi\n"
             "mfence\n"
             FLUSH_CACHE_LINE
             CLEAR_PIPELINE
             TIMING_BEGIN
             "vmovdqa %%ymm0, 0*32(%%rsi) \n"
             "vmovdqa %%ymm0, 1*32(%%rsi) \n"
-            //"sfence \n"
+            "clwb 0*32(%%rsi) \n"
+            "clwb 1*32(%%rsi) \n"
+            "sfence \n"
             TIMING_END
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr)
-            :REGISTERS
+            :REGISTERS, "%r13"
             );
 
     return (t_end - t_start);
@@ -421,6 +597,12 @@ uint64_t op_st_cl_flush_64B_lat(char* addr){
     addr = (char*)((uint64_t)addr & (~0x3F));
 
     asm volatile(
+            // "mov %[addr], %%rsi\n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%rsi \n"
+            // "vmovdqa 0*32(%%rsi), %%ymm0 \n"
+            // "vmovdqa 1*32(%%rsi), %%ymm1 \n"
+            // "clwb 0*32(%%rsi) \n"
             "mov %[addr], %%rsi\n"
             "mfence\n"
             CLEAR_PIPELINE
@@ -431,7 +613,7 @@ uint64_t op_st_cl_flush_64B_lat(char* addr){
             TIMING_END
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr)
-            :REGISTERS
+            :REGISTERS, "%r13"
             );
     return (t_end - t_start);
 }
@@ -488,8 +670,27 @@ uint64_t op_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
     uint64_t t_start = 0, t_end = 0;
     //assume 64KB buff
     asm volatile(
+            // // cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // CLEAR_STWB_xN_RAND_AVX512
+
+            // Cache dirty miss test
             "mov %[addr], %%r11 \n"
             "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            STWB_xN_RAND_AVX512
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // // LD_xN_RAND_AVX512
+            // CLEAR_STWB_xN_RAND_AVX512
+            // "sfence \n"
 
             "cmp $0x0, %[flush_block] \n"
             "je LOOP_BLOCK_STWB_FLUSH_DONE \n"
@@ -519,7 +720,66 @@ uint64_t op_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
-            :REGISTERS, "%r10", "%r11", ZMM_0_15
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
+    );
+
+    return (t_end - t_start);
+}
+
+uint64_t op_seq_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
+    uint64_t t_start = 0, t_end = 0;
+    //assume 64KB buff
+    asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // CLEAR_STWB_xN_SEQ_AVX512
+
+            // Cache dirty miss test
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            STWB_xN_SEQ_AVX512
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // // STWB_xN_SEQ_AVX512
+            // CLEAR_STWB_xN_SEQ_AVX512
+            // "sfence \n"
+
+            "cmp $0x0, %[flush_block] \n"
+            "je LOOP_BLOCK_SEQ_STWB_FLUSH_DONE \n"
+            "LOOP_BLOCK_SEQ_STWB_FLUSH: \n"
+                "clflush (%%r11, %%r10) \n"
+                "add $0x40, %%r10 \n"
+                "cmp $0x10000, %%r10 \n"
+                "jl LOOP_BLOCK_SEQ_STWB_FLUSH \n"
+            "xor %%r10, %%r10 \n"
+            "mfence \n"
+
+            "LOOP_BLOCK_SEQ_STWB_FLUSH_DONE: \n"
+
+                "cmp %[num_clear_pipe], %%r10 \n"
+                "je LOOP_BLOCK_SEQ_STWB_START \n"
+                CLEAR_PIPELINE_x16
+                "add $0x1, %%r10 \n"
+                "jmp LOOP_BLOCK_SEQ_STWB_FLUSH_DONE \n"
+
+            "LOOP_BLOCK_SEQ_STWB_START: \n"
+            "xor %%r10, %%r10 \n"
+            // Test 
+            TIMING_BEGIN
+            STWB_xN_SEQ_AVX512 
+            TIMING_END
+
+            :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
+            :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
     );
 
     return (t_end - t_start);
@@ -528,8 +788,26 @@ uint64_t op_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 uint64_t op_ld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
     uint64_t t_start = 0, t_end = 0;
     asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // LD_xN_RAND_AVX512
+
+            // Cache dirty miss test
             "mov %[addr], %%r11 \n"
             "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            LD_xN_RAND_DIRTYMISS_AVX512
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // LD_xN_RAND_AVX512
+            // "mfence \n"
 
             // flush data
             "cmp $0x0, %[flush_block] \n"
@@ -560,7 +838,65 @@ uint64_t op_ld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
-            :REGISTERS, "%r10", "%r11", ZMM_0_15
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
+    );
+    return (t_end - t_start);
+}
+
+uint64_t op_seq_ld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
+    uint64_t t_start = 0, t_end = 0;
+    asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // LD_xN_SEQ_AVX512
+
+            // Cache dirty miss test
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            LD_xN_SEQ_DIRTYMISS_AVX512
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // LD_xN_SEQ_AVX512
+            // "mfence \n"
+
+            // flush data
+            "cmp $0x0, %[flush_block] \n"
+            "je LOOP_BLOCK_SEQ_LD_FLUSH_DONE \n"
+            "LOOP_BLOCK_SEQ_LD_FLUSH: \n"
+                "clflush (%%r11, %%r10) \n"
+                "add $0x40, %%r10 \n"
+                "cmp $0x10000, %%r10 \n"
+                "jl LOOP_BLOCK_SEQ_LD_FLUSH \n"
+            "xor %%r10, %%r10 \n"
+            "mfence \n"
+
+            "LOOP_BLOCK_SEQ_LD_FLUSH_DONE: \n"
+
+                "cmp %[num_clear_pipe], %%r10 \n"
+                "je LOOP_BLOCK_SEQ_LD_START \n"
+                CLEAR_PIPELINE_x16
+                "add $0x1, %%r10 \n"
+                "jmp LOOP_BLOCK_SEQ_LD_FLUSH_DONE \n"
+
+            "LOOP_BLOCK_SEQ_LD_START: \n"
+            "xor %%r10, %%r10 \n"
+
+            // Test 
+            TIMING_BEGIN
+            LD_xN_SEQ_AVX512
+            TIMING_END
+
+            :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
+            :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
     );
     return (t_end - t_start);
 }
@@ -568,8 +904,26 @@ uint64_t op_ld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 uint64_t op_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
     uint64_t t_start = 0, t_end = 0;
     asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // NTLD_xN_RAND_AVX512 // Re-run workload to evict all the test loop data via collisions
+            
+            // Cache dirty miss test
             "mov %[addr], %%r11 \n"
             "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            NTLD_xN_RAND_DIRTYMISS_AVX512 // Re-run workload to evict all the test loop data via collisions
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // NTLD_xN_RAND_AVX512
+            // "mfence \n"
 
             // flush data
             "cmp $0x0, %[flush_block] \n"
@@ -592,7 +946,6 @@ uint64_t op_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 
             "LOOP_BLOCK_NTLD_START: \n"
             "xor %%r10, %%r10 \n"
-
             // Test 
             TIMING_BEGIN
             NTLD_xN_RAND_AVX512
@@ -600,7 +953,66 @@ uint64_t op_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
-            :REGISTERS, "%r10", "%r11", ZMM_0_15
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
+    );
+    return (t_end - t_start);
+}
+
+uint64_t op_seq_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
+    uint64_t t_start = 0, t_end = 0;
+    asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // NTLD_xN_SEQ_AVX512 // Re-run workload to evict all the test loop data via collisions
+
+            // Cache dirty miss test
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            NTLD_xN_SEQ_DIRTYMISS_AVX512 // Re-run workload to evict all the test loop data via collisions
+
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // NTLD_xN_SEQ_AVX512
+            // "mfence \n"
+
+
+            // flush data
+            "cmp $0x0, %[flush_block] \n"
+            "je LOOP_BLOCK_SEQ_NTLD_FLUSH_DONE \n"
+            "LOOP_BLOCK_SEQ_NTLD_FLUSH: \n"
+                "clflush (%%r11, %%r10) \n"
+                "add $0x40, %%r10 \n"
+                "cmp $0x10000, %%r10 \n"
+                "jl LOOP_BLOCK_SEQ_NTLD_FLUSH \n"
+            "xor %%r10, %%r10 \n"
+            "mfence \n"
+
+            "LOOP_BLOCK_SEQ_NTLD_FLUSH_DONE: \n"
+
+                "cmp %[num_clear_pipe], %%r10 \n"
+                "je LOOP_BLOCK_SEQ_NTLD_START \n"
+                CLEAR_PIPELINE_x16
+                "add $0x1, %%r10 \n"
+                "jmp LOOP_BLOCK_SEQ_NTLD_FLUSH_DONE \n"
+
+            "LOOP_BLOCK_SEQ_NTLD_START: \n"
+            "xor %%r10, %%r10 \n"
+            // Test 
+            TIMING_BEGIN
+            NTLD_xN_SEQ_AVX512
+            TIMING_END
+
+            :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
+            :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
     );
     return (t_end - t_start);
 }
@@ -608,8 +1020,28 @@ uint64_t op_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 uint64_t op_ntst_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
     uint64_t t_start = 0, t_end = 0;
     asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // CLEAR_NTST_xN_RAND_AVX512 // Re-run workload to evict all the test loop data via collisions
+            
+            // Cache dirty miss test
             "mov %[addr], %%r11 \n"
             "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            NTST_xN_RAND_AVX512 // Re-run workload to evict all the test loop data via collisions
+            "sfence \n"
+            
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // // NTST_xN_RAND_AVX512
+            // CLEAR_NTST_xN_RAND_AVX512
+            // "sfence \n"
 
             // flush data
             "cmp $0x0, %[flush_block] \n"
@@ -641,7 +1073,68 @@ uint64_t op_ntst_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
 
             :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
             :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
-            :REGISTERS, "%r10", "%r11", ZMM_0_15
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
+    );
+    return (t_end - t_start);
+}
+
+uint64_t op_seq_ntst_block_lat(char* addr, bool flush_block, long num_clear_pipe) {
+    uint64_t t_start = 0, t_end = 0;
+    asm volatile(
+            // // Cache clean miss test
+            // "mov %[addr], %%r11 \n"
+            // "xor %%r10, %%r10 \n"
+            // "movabs $0x200000000, %%r13\n"
+            // "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            // CLEAR_NTST_xN_SEQ_AVX512 // Re-run workload to evict all the test
+
+            // Cache dirty miss test
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+            "movabs $0x200000000, %%r13\n"
+            "add %%r13, %%r11 \n" // Add 8GB to the r11 offset
+            NTST_xN_SEQ_AVX512 // Re-run workload to evict all the test
+            "sfence \n"
+
+            "mov %[addr], %%r11 \n"
+            "xor %%r10, %%r10 \n"
+
+            // // Cache hit test
+            // // NTST_xN_SEQ_AVX512
+            // CLEAR_NTST_xN_SEQ_AVX512
+            // "sfence \n"
+
+            // flush data
+            "cmp $0x0, %[flush_block] \n"
+            "je LOOP_BLOCK_SEQ_NTST_FLUSH_DONE \n"
+            "LOOP_BLOCK_SEQ_NTST_FLUSH: \n"
+                "clflush (%%r11, %%r10) \n"
+                "add $0x40, %%r10 \n"
+                "cmp $0x10000, %%r10 \n"
+                "jl LOOP_BLOCK_SEQ_NTST_FLUSH \n"
+            "xor %%r10, %%r10 \n"
+            "mfence \n"
+
+            "LOOP_BLOCK_SEQ_NTST_FLUSH_DONE: \n"
+
+                "cmp %[num_clear_pipe], %%r10 \n"
+                "je LOOP_BLOCK_SEQ_NTST_START \n"
+                CLEAR_PIPELINE_x16
+                "add $0x1, %%r10 \n"
+                "jmp LOOP_BLOCK_SEQ_NTST_FLUSH_DONE \n"
+
+            "LOOP_BLOCK_SEQ_NTST_START: \n"
+            "xor %%r10, %%r10 \n"
+
+            // Test 
+            TIMING_BEGIN
+            NTST_xN_SEQ_AVX512
+            "sfence \n"
+            TIMING_END
+
+            :[t_start] "=r" (t_start), [t_end] "=r" (t_end)
+            :[addr] "r" (addr), [flush_block] "r" (flush_block), [num_clear_pipe] "r" (num_clear_pipe)
+            :REGISTERS, "%r10", "%r11", "%r13", ZMM_0_15
     );
     return (t_end - t_start);
 }
@@ -650,7 +1143,7 @@ void set_all_zmm(char* addr) {
     asm volatile(
         "mov %[addr], %%r9 \n"
         "xor %%r10, %%r10 \n"
-        SIZELD_MACRO	
+        SIZELD_SEQ_MACRO	
         "mfence\n"
         : /* output */
         :[addr]"r"(addr) /* input */

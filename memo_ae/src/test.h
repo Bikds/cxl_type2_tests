@@ -11,4 +11,6 @@ void* thread_wrapper(void* arg);
 
 void get_bw(test_cfg_t* cfg_arr, int iter, int delay);
 
+void cache_flush(test_cfg_t* cfg);
+
 #endif // TEST_H

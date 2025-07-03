@@ -9,15 +9,19 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #define MAX_NUM_THREAD 		128
-#define MAX_BUF_GB 			16
+// #define MAX_BUF_GB 			16
+#define MAX_BUF_GB 			32
 #define MAX_NUMA_NODE 		10
 #define MAX_SKIP_BYTE 		1024
 #define PREFETCH_REG_ADDR   0x1A4
 #define MAX_CORE_NUM		63
 #define FLUSH_SIZE          (512 * (1 << 20)) // MB
 #define TSC_FREQ_GHZ	    2.0
+
+#define OFFSET_16GB (16ULL << 30) // 16GB in bytes
 
 char* help_str = " Usage: \n" \
                   "-t  	Number of threads.\n" \
@@ -151,7 +155,8 @@ int parse_arg(int argc, char*argv[], test_cfg_t* cfg) {
                     fprintf (stderr, "Can't have more than %d GB buf, %d\n", MAX_BUF_GB, num);
                     return -1;
                 } else {
-                    cfg->total_buf_size = ((uint64_t)num << 30);
+                    // cfg->total_buf_size = ((uint64_t)num << 30);
+                    cfg->total_buf_size = ((uint64_t)num << 30) + ((uint64_t)8 << 30); // Reserve an extra 8GB for b/w case memory clearing
                 }
                 break;
 
@@ -207,8 +212,8 @@ int parse_arg(int argc, char*argv[], test_cfg_t* cfg) {
 
             case 'o':
                 num = atoi(optarg);
-                if(num < 0 || num > 5){
-                    fprintf(stderr, "operation must be 0(read), 1(read non-temporal), 2(write), 3(write non-temporal), 4(movdir64B) or 5(mix RW).\n");
+                if (num < 0 || num > 9) {
+                    fprintf(stderr, "operation must be 0(read), 1(read non-temporal), 2(write), 3(write non-temporal), 4(movdir64B), 5(mix RW), 6(seq read), 7(seq read NT), 8(seq write), 9(seq write NT).\n");
                     return -1;
                 } else {
                     cfg->op = num;
@@ -259,7 +264,8 @@ int parse_arg(int argc, char*argv[], test_cfg_t* cfg) {
         return -1;
     }
 
-    cfg->per_thread_size = cfg->total_buf_size / cfg->num_thread;
+    // cfg->per_thread_size = cfg->total_buf_size / cfg->num_thread;
+    cfg->per_thread_size = (cfg->total_buf_size - ((uint64_t)8 << 30)) / cfg->num_thread; // reserve 16GB for mmap
     uint64_t calculated_buf_size = cfg->per_thread_size * cfg->num_thread;
     printf("cal: %lu vs total: %lu\n", calculated_buf_size, cfg->total_buf_size); 
 
@@ -328,7 +334,7 @@ int get_node(void *p, uint64_t size)
     return ret;
 }
 
-int init_buf(uint64_t size, int node, char** alloc_ptr) {
+/* int init_buf(uint64_t size, int node, char** alloc_ptr) {
     char *ptr;
     int ret;
     unsigned long page_size;
@@ -359,6 +365,60 @@ int init_buf(uint64_t size, int node, char** alloc_ptr) {
 
     *alloc_ptr = ptr;
     
+    return 0;
+ } */
+
+int init_buf(uint64_t size, int node, char** alloc_ptr) {
+    int fd;
+    void *ptr;
+    unsigned long page_size;
+    uint64_t page_cnt;
+    uint64_t idx;
+
+    // Open the persistent memory device (/dev/pmem1)
+    // fd = open("/dev/pmem0", O_RDWR);
+    // fd = open("/dev/my_mem_dev", O_RDWR);
+    fd = open("/dev/dax0.0", O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Failed to open /dev/pmem0: %s\n", strerror(errno));
+        return -1;
+    }
+
+    // Map the device into the process's address space
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, OFFSET_16GB);
+    // ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED_VALIDATE | MAP_POPULATE, fd, 0);
+    // ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED_VALIDATE | MAP_POPULATE | MAP_SYNC, fd, 0);
+
+    if (ptr == MAP_FAILED) {
+        fprintf(stderr, "mmap failed: %s\n", strerror(errno));
+        close(fd);
+        return -2;
+    }
+
+    printf("[INFO] done mapping. Next, touch all pages\n");
+
+    // Touch all pages to ensure allocation
+    page_size = (unsigned long)getpagesize();
+    page_cnt = (size / page_size);
+    idx = 0;
+    printf("[INFO] page_cnt is %ld\n", page_cnt);
+    // for (uint64_t i = 0; i < page_cnt; i++) {
+    //     ((char *)ptr)[idx] = 0;
+    //     idx += page_size;
+    //     // printf("[INFO] current idx is %ld\n", idx);
+    //     // usleep(10000);
+    // }
+
+    printf("[INFO] done touching pages.\n");
+    printf("Allocated: %luMB\n", (size >> 20));
+
+    // Pass the mapped address to the caller
+    *alloc_ptr = (char *)ptr;
+
+    // Close the device file descriptor (the mapping remains valid)
+    close(fd);
+
     return 0;
 }
 

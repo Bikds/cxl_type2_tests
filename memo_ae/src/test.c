@@ -24,6 +24,15 @@
 
 #define PAGE_SIZE       4096
 
+#define SIZENTLD_SEQ_MACRO SIZENTLD_1024_AVX512
+#define SIZELD_SEQ_MACRO   SIZELD_1024_AVX512
+#define SIZEST_SEQ_MACRO   SIZEST_1024_AVX512
+#define SIZENTST_SEQ_MACRO SIZENTST_1024_AVX512
+#define SIZELD_MACRO SIZELD_RAND_1024_AVX512
+#define SIZEST_MACRO   SIZEST_RAND_1024_AVX512
+#define SIZENTLD_MACRO SIZENTLD_RAND_1024_AVX512
+#define SIZENTST_MACRO SIZENTST_RAND_1024_AVX512
+
 //#define CHECK_NT_ST
 
 //#define DUMP_ZMM
@@ -400,6 +409,18 @@ void block_lats_wrapper(test_cfg_t* cfg) {
             case WRITE_NT:
                 result = op_ntst_block_lat(cfg->start_addr_a + offset, cfg->flush_block, cfg->num_clear_pipe);
                 break;
+            case SEQ_READ:
+                result = op_seq_ld_block_lat(cfg->start_addr_a + offset, cfg->flush_block, cfg->num_clear_pipe);
+                break;
+            case SEQ_READ_NT:
+                result = op_seq_ntld_block_lat(cfg->start_addr_a + offset, cfg->flush_block, cfg->num_clear_pipe);
+                break;
+            case SEQ_WRITE:
+                result = op_seq_stwb_block_lat(cfg->start_addr_a + offset, cfg->flush_block, cfg->num_clear_pipe);
+                break;
+            case SEQ_WRITE_NT:
+                result = op_seq_ntst_block_lat(cfg->start_addr_a + offset, cfg->flush_block, cfg->num_clear_pipe);
+                break;
             default:
                 printf(RED "[ERROR]" RESET "bad cfg->op\n");
                 goto out;
@@ -486,7 +507,8 @@ void lats_clflush_wrapper(test_cfg_t* cfg) {
         case WRITE:
             for (int i = 0; i < cfg->op_iter; i++){
                 offset = rand() % cfg->total_buf_size;
-                result = op_st_cl_flush_64B_lat(cfg->start_addr_a + offset);
+                // result = op_st_cl_flush_64B_lat(cfg->start_addr_a + offset);
+                result = op_st_64B_lat(cfg->start_addr_a + offset);
                 latency_sum += result;
                 if (i == 0){
                     min = result;
@@ -567,6 +589,263 @@ void bw_wrapper(test_cfg_t* cfg) {
     free(data_buf);
 #endif
 
+    // uint64_t num_bytes_cleared = 0;
+    // char* clear_addr = cfg->start_addr_a;
+    // bool CACHE_HIT = true;
+
+    // printf("\nCACHE HIT CASE: %s\n\n", CACHE_HIT ? "YES" : "NO");
+
+    // // Print the per_thread_size
+    // printf("per_thread_size: %ld, total_buf_size: %ld\n", cfg->per_thread_size, cfg->total_buf_size);
+    // printf("Starting address: 0x%lx\n", (uint64_t)cfg->start_addr_a);
+
+    // // CACHE CLEAN MISS (READ) DIRTY MISS (WRITE)
+    // while (1) {    
+    //     // If the address is below 0x200000000 + start_addr_a, we are in the first 8GB of memory
+
+    //     if (CACHE_HIT) {
+    //         switch (cfg->op) {
+    //             case SEQ_READ:
+    //                 asm volatile(
+    //                         // Cache clean miss test
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZELD_SEQ_MACRO	
+    //                         "mfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case READ:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZELD_MACRO	
+    //                         "mfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case READ_NT:
+    //                 // Print the addr
+    //                 // printf("clear_addr: 0x%lx, fixed_step: %ld\n", (uint64_t)clear_addr, fixed_step);
+    //                 // printf("Starting address clearing\n");
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZENTLD_MACRO	
+    //                         "mfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 // Print done with clearing
+    //                 // printf("Done clearing cache\n");
+    //                 break;
+    //             case SEQ_READ_NT:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZENTLD_SEQ_MACRO	
+    //                         "mfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case WRITE:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZEST_MACRO
+    //                         "sfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case SEQ_WRITE:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZEST_SEQ_MACRO
+    //                         "sfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case WRITE_NT:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         SIZENTST_1024_AVX512
+    //                         "sfence \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             default:
+    //                 fprintf(stderr, "unknown op, thread idx: %d\n", cfg->thread_idx);
+    //                 break;
+    //         }
+    //         cache_flush(cfg);
+    //         break;
+    //     } else {
+    //         // Done if we have cleared enough memory
+    //         if (num_bytes_cleared >= cfg->per_thread_size) {
+    //             cache_flush(cfg);
+    //             break; // exit if we have cleared enough memory
+    //         }
+    //         switch (cfg->op) {
+    //             // move 8GB and execute the workload
+    //             case READ:
+    //                 asm volatile(
+    //                         // Cache clean miss test
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_LD: \n"
+    //                         SIZELD_MACRO	
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_LD \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case SEQ_READ:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_SEQ_LD: \n"
+    //                         SIZELD_SEQ_MACRO    
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_SEQ_LD \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case READ_NT:
+    //                 // Print the addr
+    //                 // printf("clear_addr: 0x%lx, fixed_step: %ld\n", (uint64_t)clear_addr, fixed_step);
+    //                 // printf("Starting address clearing\n");
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         // SIZENTLD_MACRO // Re-run the workload with the new offset
+
+    //                         // "mov %[addr], %%r9 \n"
+    //                         // "xor %%r10, %%r10 \n"
+    //                         "LOOP_NTLD: \n"
+    //                         SIZENTLD_MACRO	
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_NTLD \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                     );
+    //                 // Print done with clearing
+    //                 // printf("Done clearing cache\n");
+    //                 break;
+    //             case SEQ_READ_NT:
+    //                 asm volatile(
+    //                     "mov %[addr], %%r9 \n"
+    //                     "xor %%r10, %%r10 \n"
+    //                     "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                     "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                     // SIZENTLD_MACRO // Re-run the workload with the new offset
+
+    //                     // "mov %[addr], %%r9 \n"
+    //                     // "xor %%r10, %%r10 \n"
+    //                     "LOOP_SEQ_NTLD: \n"
+    //                     SIZENTLD_SEQ_MACRO	
+    //                     "cmp %[size], %%r10 \n"
+    //                     "jl LOOP_SEQ_NTLD \n"
+    //                     : /* output */
+    //                     :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                     :"%r9", "%r10", "%r11" /* clobbered register */
+    //                 );
+    //                 break;
+    //             case WRITE:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_ST: \n"
+    //                         SIZEST_MACRO
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_ST \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case SEQ_WRITE:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_SEQ_ST: \n"
+    //                         SIZEST_SEQ_MACRO
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_SEQ_ST \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case WRITE_NT:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_NTST: \n"
+    //                         SIZENTST_MACRO
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_NTST \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             case SEQ_WRITE_NT:
+    //                 asm volatile(
+    //                         "mov %[addr], %%r9 \n"
+    //                         "xor %%r10, %%r10 \n"
+    //                         "movabs $0x200000000, %%r11 \n" // 8GB offset
+    //                         "add %%r11, %%r9 \n" // Add to the address to be accessed
+    //                         "LOOP_SEQ_NTST: \n"
+    //                         SIZENTST_SEQ_MACRO
+    //                         "cmp %[size], %%r10 \n"
+    //                         "jl LOOP_SEQ_NTST \n"
+    //                         : /* output */
+    //                         :[size]"r"(fixed_step), [addr]"r"(clear_addr) /* input */
+    //                         :"%r9", "%r10", "%r11" /* clobbered register */
+    //                         );
+    //                 break;
+    //             default:
+    //                 fprintf(stderr, "unknown op, thread idx: %d\n", cfg->thread_idx);
+    //                 break;
+    //         }
+    //     }
+
+    //     clear_addr += fixed_step;
+    //     num_bytes_cleared += fixed_step;
+    // }
+    
 
     while (1) {
         if(counter + fixed_step > cfg->per_thread_size){
@@ -580,16 +859,32 @@ void bw_wrapper(test_cfg_t* cfg) {
                 op_st(src, fixed_step);
                 break;
 
+            case SEQ_WRITE:
+                op_seq_st(src, fixed_step);
+                break;
+
             case WRITE_NT:
                 op_ntst(src, fixed_step);
+                break;
+
+            case SEQ_WRITE_NT:
+                op_seq_ntst(src, fixed_step);
                 break;
 
             case READ:
                 op_ld(src, fixed_step);
                 break;
 
+            case SEQ_READ:
+                op_seq_ld(src, fixed_step);
+                break;
+
             case READ_NT:
                 op_ntld(src, fixed_step);
+                break;
+
+            case SEQ_READ_NT:
+                op_seq_ntld(src, fixed_step);
                 break;
 
             case MOV:
@@ -651,6 +946,88 @@ void bw_wrapper(test_cfg_t* cfg) {
     }
 out:
     restore_prefetching(cfg->starting_core, cfg->prefetch_en, core_num);
+}
+
+void cache_flush(test_cfg_t *cfg) {
+    switch (cfg->op) {
+        // Flush the cachelines
+        case READ:
+            asm volatile(
+                "mov %[addr], %%r9 \n"
+                "xor %%r10, %%r10 \n"
+                // flush data
+                "LOOP_LD_FLUSH: \n"
+                    "clflush (%%r9, %%r10) \n"
+                    "add $0x40, %%r10 \n"
+                    "cmp $0x10000, %%r10 \n"
+                    "jl LOOP_LD_FLUSH \n"
+                "xor %%r10, %%r10 \n"
+                "mfence \n"
+
+                : /* output */
+                :[addr]"r"(cfg->start_addr_a) /* input */
+                :"%r9", "%r10" /* clobbered register */
+            );
+            break;
+        case READ_NT:
+            asm volatile(
+                "mov %[addr], %%r9 \n"
+                "xor %%r10, %%r10 \n"
+                // flush data
+                "LOOP_NTLD_FLUSH: \n"
+                    "clflush (%%r9, %%r10) \n"
+                    "add $0x40, %%r10 \n"
+                    "cmp $0x10000, %%r10 \n"
+                    "jl LOOP_NTLD_FLUSH \n"
+                "xor %%r10, %%r10 \n"
+                "mfence \n"
+
+                : /* output */
+                :[addr]"r"(cfg->start_addr_a) /* input */
+                :"%r9", "%r10" /* clobbered register */
+            );
+            // Print done with flushing
+            printf("Done flushing cache\n");
+            break;
+        case WRITE:
+            asm volatile(
+                "mov %[addr], %%r9 \n"
+                "xor %%r10, %%r10 \n"
+                // flush data
+                "LOOP_ST_FLUSH: \n"
+                    "clflush (%%r9, %%r10) \n"
+                    "add $0x40, %%r10 \n"
+                    "cmp $0x10000, %%r10 \n"
+                    "jl LOOP_ST_FLUSH \n"
+                "xor %%r10, %%r10 \n"
+                "mfence \n"
+                : /* output */
+                :[addr]"r"(cfg->start_addr_a) /* input */
+                :"%r9", "%r10" /* clobbered register */
+            );
+            break;
+        case WRITE_NT:
+            asm volatile(
+                "mov %[addr], %%r9 \n"
+                "xor %%r10, %%r10 \n"
+                // flush data
+                "LOOP_NTST_FLUSH: \n"
+                    "clflush (%%r9, %%r10) \n"
+                    "add $0x40, %%r10 \n"
+                    "cmp $0x10000, %%r10 \n"
+                    "jl LOOP_NTST_FLUSH \n"
+                "xor %%r10, %%r10 \n"
+                "mfence \n"
+                : /* output */
+                :[addr]"r"(cfg->start_addr_a) /* input */
+                :"%r9", "%r10" /* clobbered register */
+            );
+            break;
+        default:
+            break;
+
+    }
+    return;
 }
 
 // taken from https://stackoverflow.com/questions/1407786/how-to-set-cpu-affinity-of-a-particular-pthread

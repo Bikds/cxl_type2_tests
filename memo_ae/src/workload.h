@@ -27,9 +27,21 @@
 
 #define BLOCK_xN 16
 #define LD_xN_RAND_AVX512   LD_x16_RAND_AVX512 
-#define STWB_xN_RAND_AVX512 STWB_x16_RAND_AVX512 
+#define LD_xN_RAND_DIRTYMISS_AVX512 LD_x16_RAND_DIRTYMISS_AVX512
+#define STWB_xN_RAND_AVX512 STWB_x16_RAND_AVX512
+#define CLEAR_STWB_xN_RAND_AVX512 CLEAR_STWB_x16_RAND_AVX512
 #define NTLD_xN_RAND_AVX512 NTLD_x16_RAND_AVX512 
+#define NTLD_xN_RAND_DIRTYMISS_AVX512 NTLD_x16_RAND_DIRTYMISS_AVX512
 #define NTST_xN_RAND_AVX512 NTST_x16_RAND_AVX512 
+#define CLEAR_NTST_xN_RAND_AVX512 CLEAR_NTST_x16_RAND_AVX512
+#define LD_xN_SEQ_AVX512   LD_x16_SEQ_AVX512
+#define LD_xN_SEQ_DIRTYMISS_AVX512 LD_x16_SEQ_DIRTYMISS_AVX512
+#define STWB_xN_SEQ_AVX512 STWB_x16_SEQ_AVX512
+#define CLEAR_STWB_xN_SEQ_AVX512 CLEAR_STWB_x16_SEQ_AVX512
+#define NTLD_xN_SEQ_AVX512 NTLD_x16_SEQ_AVX512
+#define NTLD_xN_SEQ_DIRTYMISS_AVX512 NTLD_x16_SEQ_DIRTYMISS_AVX512
+#define NTST_xN_SEQ_AVX512 NTST_x16_SEQ_AVX512
+#define CLEAR_NTST_xN_SEQ_AVX512 CLEAR_NTST_x16_SEQ_AVX512
 //#define LD_xN_RAND_AVX512   LD_LFENCE_x16_RAND_AVX512 
 //#define STWB_xN_RAND_AVX512 STWB_SFENCE_x16_RAND_AVX512 
 //#define NTLD_xN_RAND_AVX512 NTLD_LFENCE_x16_RAND_AVX512 
@@ -45,11 +57,19 @@
 
 void op_ntld(char* addr, long size);
 
+void op_seq_ntld(char* addr, long size);
+
 void op_ld(char* addr, long size);
+
+void op_seq_ld(char* addr, long size);
 
 void op_ntst(char* addr, long size);
 
+void op_seq_ntst(char* addr, long size);
+
 void op_st(char* addr, long size);
+
+void op_seq_st(char* addr, long size);
 
 void op_stall();
 
@@ -80,6 +100,14 @@ uint64_t op_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe);
 uint64_t op_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe);
 
 uint64_t op_ntst_block_lat(char* addr, bool flush_block, long num_clear_pipe);
+
+uint64_t op_seq_ld_block_lat(char* addr, bool flush_block, long num_clear_pipe);
+
+uint64_t op_seq_ntld_block_lat(char* addr, bool flush_block, long num_clear_pipe);
+
+uint64_t op_seq_stwb_block_lat(char* addr, bool flush_block, long num_clear_pipe);
+
+uint64_t op_seq_ntst_block_lat(char* addr, bool flush_block, long num_clear_pipe);
 
 void set_all_zmm(char* addr);
 
@@ -132,6 +160,25 @@ void dump_zmm(char* dst, uint64_t size);
 				"vmovntdqa  0x3c0(%%r9, %%r10), %%zmm15 \n" \
 				"add $0x400, %%r10 \n"
 
+#define SIZENTLD_RAND_1024_AVX512    \
+                "vmovntdqa 0x2e80(%%r9, %%r10), %%zmm0 \n" \
+                "vmovntdqa 0x7a40(%%r9, %%r10), %%zmm1 \n" \
+                "vmovntdqa 0x1b00(%%r9, %%r10), %%zmm2 \n" \
+                "vmovntdqa 0x4f80(%%r9, %%r10), %%zmm3 \n" \
+                "vmovntdqa 0x3c40(%%r9, %%r10), %%zmm4 \n" \
+                "vmovntdqa 0x8d00(%%r9, %%r10), %%zmm5 \n" \
+                "vmovntdqa 0x5a80(%%r9, %%r10), %%zmm6 \n" \
+                "vmovntdqa 0x6e40(%%r9, %%r10), %%zmm7 \n" \
+                "vmovntdqa 0x9b00(%%r9, %%r10), %%zmm8 \n" \
+                "vmovntdqa 0x2480(%%r9, %%r10), %%zmm9 \n" \
+                "vmovntdqa 0x6c00(%%r9, %%r10), %%zmm10 \n" \
+                "vmovntdqa 0x3f40(%%r9, %%r10), %%zmm11 \n" \
+                "vmovntdqa 0x7d80(%%r9, %%r10), %%zmm12 \n" \
+                "vmovntdqa 0x1280(%%r9, %%r10), %%zmm13 \n" \
+                "vmovntdqa 0x5e40(%%r9, %%r10), %%zmm14 \n" \
+                "vmovntdqa 0x4a00(%%r9, %%r10), %%zmm15 \n" \
+                "add $0x400, %%r10 \n"
+
 #define NTLD_x1_RAND_AVX512 \
                 "vmovntdqa  0xd6c0(%%r11, %%r10), %%zmm0 \n"
 
@@ -162,6 +209,60 @@ void dump_zmm(char* dst, uint64_t size);
                 "vmovntdqa  0xe100(%%r11, %%r10), %%zmm13 \n" \
                 "vmovntdqa  0x8f40(%%r11, %%r10), %%zmm14 \n" \
                 "vmovntdqa  0xf2c0(%%r11, %%r10), %%zmm15 \n"
+
+#define NTLD_x16_RAND_DIRTYMISS_AVX512 \
+                "vmovntdq %%zmm0, 0xc840(%%r11, %%r10) \n clwb 0xc840(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm1, 0xf180(%%r11, %%r10) \n clwb 0xf180(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm2, 0xce40(%%r11, %%r10) \n clwb 0xce40(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm3, 0x300(%%r11, %%r10) \n clwb 0x300(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm4, 0x6d40(%%r11, %%r10) \n clwb 0x6d40(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm5, 0xa440(%%r11, %%r10) \n clwb 0xa440(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm6, 0xa9c0(%%r11, %%r10) \n clwb 0xa9c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm7, 0xe980(%%r11, %%r10) \n clwb 0xe980(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm8, 0xc940(%%r11, %%r10) \n clwb 0xc940(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm9, 0x8200(%%r11, %%r10) \n clwb 0x8200(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm10, 0xbac0(%%r11, %%r10) \n clwb 0xbac0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm11, 0x8940(%%r11, %%r10) \n clwb 0x8940(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm12, 0xe700(%%r11, %%r10) \n clwb 0xe700(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm13, 0xe100(%%r11, %%r10) \n clwb 0xe100(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm14, 0x8f40(%%r11, %%r10) \n clwb 0x8f40(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm15, 0xf2c0(%%r11, %%r10) \n clwb 0xf2c0(%%r11, %%r10) \n"
+
+#define NTLD_x16_SEQ_AVX512 \
+                "vmovntdqa  0xa180(%%r11, %%r10), %%zmm0 \n" \
+                "vmovntdqa  0xa1c0(%%r11, %%r10), %%zmm1 \n" \
+                "vmovntdqa  0xa200(%%r11, %%r10), %%zmm2 \n" \
+                "vmovntdqa  0xa240(%%r11, %%r10), %%zmm3 \n" \
+                "vmovntdqa  0xa280(%%r11, %%r10), %%zmm4 \n" \
+                "vmovntdqa  0xa2c0(%%r11, %%r10), %%zmm5 \n" \
+                "vmovntdqa  0xa300(%%r11, %%r10), %%zmm6 \n" \
+                "vmovntdqa  0xa340(%%r11, %%r10), %%zmm7 \n" \
+                "vmovntdqa  0xa380(%%r11, %%r10), %%zmm8 \n" \
+                "vmovntdqa  0xa3c0(%%r11, %%r10), %%zmm9 \n" \
+                "vmovntdqa  0xa400(%%r11, %%r10), %%zmm10 \n" \
+                "vmovntdqa  0xa440(%%r11, %%r10), %%zmm11 \n" \
+                "vmovntdqa  0xa480(%%r11, %%r10), %%zmm12 \n" \
+                "vmovntdqa  0xa4c0(%%r11, %%r10), %%zmm13 \n" \
+                "vmovntdqa  0xa500(%%r11, %%r10), %%zmm14 \n" \
+                "vmovntdqa  0xa540(%%r11, %%r10), %%zmm15 \n"
+
+#define NTLD_x16_SEQ_DIRTYMISS_AVX512 \
+                "vmovntdq %%zmm0, 0xa180(%%r11, %%r10) \n clwb 0xa180(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm1, 0xa1c0(%%r11, %%r10) \n clwb 0xa1c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm2, 0xa200(%%r11, %%r10) \n clwb 0xa200(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm3, 0xa240(%%r11, %%r10) \n clwb 0xa240(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm4, 0xa280(%%r11, %%r10) \n clwb 0xa280(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm5, 0xa2c0(%%r11, %%r10) \n clwb 0xa2c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm6, 0xa300(%%r11, %%r10) \n clwb 0xa300(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm7, 0xa340(%%r11, %%r10) \n clwb 0xa340(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm8, 0xa380(%%r11, %%r10) \n clwb 0xa380(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm9, 0xa3c0(%%r11, %%r10) \n clwb 0xa3c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm10, 0xa400(%%r11, %%r10) \n clwb 0xa400(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm11, 0xa440(%%r11, %%r10) \n clwb 0xa440(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm12, 0xa480(%%r11, %%r10) \n clwb 0xa480(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm13, 0xa4c0(%%r11, %%r10) \n clwb 0xa4c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm14, 0xa500(%%r11, %%r10) \n clwb 0xa500(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm15, 0xa540(%%r11, %%r10) \n clwb 0xa540(%%r11, %%r10) \n"
 
 #define NTLD_x32_RAND_AVX512 \
                 "vmovntdqa  0x3d80(%%r11, %%r10), %%zmm0 \n" \
@@ -244,6 +345,25 @@ void dump_zmm(char* dst, uint64_t size);
 				"vmovntdq  %%zmm15,  0x3c0(%%r9, %%r10) \n" \
 				"add $0x400, %%r10 \n"
 
+#define SIZENTST_RAND_1024_AVX512    \
+                "vmovntdq  %%zmm0,  0xa180(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm1,  0x3ac0(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm2,  0x1b80(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm3,  0x2c40(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm4,  0x7d00(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm5,  0x4e80(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm6,  0x5a00(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm7,  0x6c80(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm8,  0x3f40(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm9,  0x8e00(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm10, 0x2480(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm11, 0x6e40(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm12, 0x9b00(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm13, 0x1280(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm14, 0x5e40(%%r9, %%r10) \n" \
+                "vmovntdq  %%zmm15, 0x4a00(%%r9, %%r10) \n" \
+                "add $0x400, %%r10 \n"
+
 #define NTST_x1_RAND_AVX512 \
                 "vmovntdq %%zmm0, 0x9680(%%r11, %%r10) \n"
 
@@ -256,6 +376,24 @@ void dump_zmm(char* dst, uint64_t size);
                 "vmovntdq %%zmm5, 0x2000(%%r11, %%r10) \n" \
                 "vmovntdq %%zmm6, 0x8d40(%%r11, %%r10) \n" \
                 "vmovntdq %%zmm7, 0xb640(%%r11, %%r10) \n"
+
+#define CLEAR_NTST_x16_RAND_AVX512 \
+                "vmovntdqa 0x3680(%%r11, %%r10), %%zmm0 \n" \
+                "vmovntdqa 0x4140(%%r11, %%r10), %%zmm1 \n" \
+                "vmovntdqa 0x2cc0(%%r11, %%r10), %%zmm2 \n" \
+                "vmovntdqa 0x28c0(%%r11, %%r10), %%zmm3 \n" \
+                "vmovntdqa 0x8440(%%r11, %%r10), %%zmm4 \n" \
+                "vmovntdqa 0xec40(%%r11, %%r10), %%zmm5 \n" \
+                "vmovntdqa 0x1080(%%r11, %%r10), %%zmm6 \n" \
+                "vmovntdqa 0x6e00(%%r11, %%r10), %%zmm7 \n" \
+                "vmovntdqa 0x3300(%%r11, %%r10), %%zmm8 \n" \
+                "vmovntdqa 0xef80(%%r11, %%r10), %%zmm9 \n" \
+                "vmovntdqa 0xb900(%%r11, %%r10), %%zmm10 \n" \
+                "vmovntdqa 0x2280(%%r11, %%r10), %%zmm11 \n" \
+                "vmovntdqa 0x85c0(%%r11, %%r10), %%zmm12 \n" \
+                "vmovntdqa 0x240(%%r11, %%r10), %%zmm13 \n" \
+                "vmovntdqa 0x40c0(%%r11, %%r10), %%zmm14 \n" \
+                "vmovntdqa 0x3100(%%r11, %%r10), %%zmm15 \n"
 
 #define NTST_x16_RAND_AVX512 \
                 "vmovntdq %%zmm0, 0x3680(%%r11, %%r10) \n" \
@@ -274,6 +412,42 @@ void dump_zmm(char* dst, uint64_t size);
                 "vmovntdq %%zmm13, 0x240(%%r11, %%r10) \n" \
                 "vmovntdq %%zmm14, 0x40c0(%%r11, %%r10) \n" \
                 "vmovntdq %%zmm15, 0x3100(%%r11, %%r10) \n"
+
+#define CLEAR_NTST_x16_SEQ_AVX512 \
+                "vmovntdqa 0x5140(%%r11, %%r10), %%zmm0 \n" \
+                "vmovntdqa 0x5180(%%r11, %%r10), %%zmm1 \n" \
+                "vmovntdqa 0x51c0(%%r11, %%r10), %%zmm2 \n" \
+                "vmovntdqa 0x5200(%%r11, %%r10), %%zmm3 \n" \
+                "vmovntdqa 0x5240(%%r11, %%r10), %%zmm4 \n" \
+                "vmovntdqa 0x5280(%%r11, %%r10), %%zmm5 \n" \
+                "vmovntdqa 0x52c0(%%r11, %%r10), %%zmm6 \n" \
+                "vmovntdqa 0x5300(%%r11, %%r10), %%zmm7 \n" \
+                "vmovntdqa 0x5340(%%r11, %%r10), %%zmm8 \n" \
+                "vmovntdqa 0x5380(%%r11, %%r10), %%zmm9 \n" \
+                "vmovntdqa 0x53c0(%%r11, %%r10), %%zmm10 \n" \
+                "vmovntdqa 0x5400(%%r11, %%r10), %%zmm11 \n" \
+                "vmovntdqa 0x5440(%%r11, %%r10), %%zmm12 \n" \
+                "vmovntdqa 0x5480(%%r11, %%r10), %%zmm13 \n" \
+                "vmovntdqa 0x54c0(%%r11, %%r10), %%zmm14 \n" \
+                "vmovntdqa 0x5500(%%r11, %%r10), %%zmm15 \n"
+
+#define NTST_x16_SEQ_AVX512 \
+                "vmovntdq %%zmm0, 0x5140(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm1, 0x5180(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm2, 0x51c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm3, 0x5200(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm4, 0x5240(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm5, 0x5280(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm6, 0x52c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm7, 0x5300(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm8, 0x5340(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm9, 0x5380(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm10, 0x53c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm11, 0x5400(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm12, 0x5440(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm13, 0x5480(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm14, 0x54c0(%%r11, %%r10) \n" \
+                "vmovntdq %%zmm15, 0x5500(%%r11, %%r10) \n"
 
 #define NTST_x32_RAND_AVX512 \
                 "vmovntdq %%zmm0, 0x4240(%%r11, %%r10) \n" \
@@ -329,6 +503,25 @@ void dump_zmm(char* dst, uint64_t size);
 				"vmovdqa64  0x3c0(%%r9, %%r10), %%zmm15 \n" \
 				"add $0x400, %%r10 \n"
 
+#define SIZELD_RAND_1024_AVX512 \
+                "vmovdqa64 0x3b40(%%r9, %%r10), %%zmm0 \n" \
+                "vmovdqa64 0x1f00(%%r9, %%r10), %%zmm1 \n" \
+                "vmovdqa64 0x4c00(%%r9, %%r10), %%zmm2 \n" \
+                "vmovdqa64 0x9c40(%%r9, %%r10), %%zmm3 \n" \
+                "vmovdqa64 0x8c00(%%r9, %%r10), %%zmm4 \n" \
+                "vmovdqa64 0x6f00(%%r9, %%r10), %%zmm5 \n" \
+                "vmovdqa64 0x7c40(%%r9, %%r10), %%zmm6 \n" \
+                "vmovdqa64 0x3d00(%%r9, %%r10), %%zmm7 \n" \
+                "vmovdqa64 0x5f40(%%r9, %%r10), %%zmm8 \n" \
+                "vmovdqa64 0x7c80(%%r9, %%r10), %%zmm9 \n" \
+                "vmovdqa64 0x4a80(%%r9, %%r10), %%zmm10 \n" \
+                "vmovdqa64 0x5b00(%%r9, %%r10), %%zmm11 \n" \
+                "vmovdqa64 0x1c80(%%r9, %%r10), %%zmm12 \n" \
+                "vmovdqa64 0x42c0(%%r9, %%r10), %%zmm13 \n" \
+                "vmovdqa64 0x2d00(%%r9, %%r10), %%zmm14 \n" \
+                "vmovdqa64 0x3a40(%%r9, %%r10), %%zmm15 \n" \
+                "add $0x400, %%r10 \n"
+
 #define LD_x1_RAND_AVX512 \
                 "vmovdqa64 0x4140(%%r11, %%r10), %%zmm0 \n"
 
@@ -377,6 +570,60 @@ void dump_zmm(char* dst, uint64_t size);
                 "vmovdqa64 0x5080(%%r11, %%r10), %%zmm13 \n" \
                 "vmovdqa64 0x6e00(%%r11, %%r10), %%zmm14 \n" \
                 "vmovdqa64 0x1540(%%r11, %%r10), %%zmm15 \n"
+
+#define LD_x16_RAND_DIRTYMISS_AVX512 \
+                "vmovdqa64 %%zmm0, 0xc300(%%r11, %%r10) \n clwb 0xc300(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm1, 0xda00(%%r11, %%r10) \n clwb 0xda00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm2, 0x1980(%%r11, %%r10) \n clwb 0x1980(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm3, 0xddc0(%%r11, %%r10) \n clwb 0xddc0(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm4, 0xaa00(%%r11, %%r10) \n clwb 0xaa00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm5, 0x5540(%%r11, %%r10) \n clwb 0x5540(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm6, 0x6740(%%r11, %%r10) \n clwb 0x6740(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm7, 0x5a80(%%r11, %%r10) \n clwb 0x5a80(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm8, 0xa680(%%r11, %%r10) \n clwb 0xa680(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm9, 0xdb00(%%r11, %%r10) \n clwb 0xdb00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm10, 0x3340(%%r11, %%r10) \n clwb 0x3340(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm11, 0x7e40(%%r11, %%r10) \n clwb 0x7e40(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm12, 0x3600(%%r11, %%r10) \n clwb 0x3600(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm13, 0x5080(%%r11, %%r10) \n clwb 0x5080(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm14, 0x6e00(%%r11, %%r10) \n clwb 0x6e00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm15, 0x1540(%%r11, %%r10) \n clwb 0x1540(%%r11, %%r10) \n"
+
+#define LD_x16_SEQ_AVX512 \
+                "vmovdqa64 0xba00(%%r11, %%r10), %%zmm0 \n" \
+                "vmovdqa64 0xba40(%%r11, %%r10), %%zmm2 \n" \
+                "vmovdqa64 0xba80(%%r11, %%r10), %%zmm3 \n" \
+                "vmovdqa64 0xbac0(%%r11, %%r10), %%zmm4 \n" \
+                "vmovdqa64 0xbb00(%%r11, %%r10), %%zmm1 \n" \
+                "vmovdqa64 0xbb40(%%r11, %%r10), %%zmm5 \n" \
+                "vmovdqa64 0xbb80(%%r11, %%r10), %%zmm6 \n" \
+                "vmovdqa64 0xbbc0(%%r11, %%r10), %%zmm7 \n" \
+                "vmovdqa64 0xbc00(%%r11, %%r10), %%zmm8 \n" \
+                "vmovdqa64 0xbc40(%%r11, %%r10), %%zmm9 \n" \
+                "vmovdqa64 0xbc80(%%r11, %%r10), %%zmm10 \n" \
+                "vmovdqa64 0xbcc0(%%r11, %%r10), %%zmm11 \n" \
+                "vmovdqa64 0xbd00(%%r11, %%r10), %%zmm12 \n" \
+                "vmovdqa64 0xbd40(%%r11, %%r10), %%zmm13 \n" \
+                "vmovdqa64 0xbd80(%%r11, %%r10), %%zmm14 \n" \
+                "vmovdqa64 0xbdc0(%%r11, %%r10), %%zmm15 \n"
+
+#define LD_x16_SEQ_DIRTYMISS_AVX512 \
+                "vmovdqa64 %%zmm0, 0xba00(%%r11, %%r10) \n clwb 0xba00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm2, 0xba40(%%r11, %%r10) \n clwb 0xba40(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm3, 0xba80(%%r11, %%r10) \n clwb 0xba80(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm4, 0xbac0(%%r11, %%r10) \n clwb 0xbac0(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm1, 0xbb00(%%r11, %%r10) \n clwb 0xbb00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm5, 0xbb40(%%r11, %%r10) \n clwb 0xbb40(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm6, 0xbb80(%%r11, %%r10) \n clwb 0xbb80(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm7, 0xbbc0(%%r11, %%r10) \n clwb 0xbbc0(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm8, 0xbc00(%%r11, %%r10) \n clwb 0xbc00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm9, 0xbc40(%%r11, %%r10) \n clwb 0xbc40(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm10, 0xbc80(%%r11, %%r10) \n clwb 0xbc80(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm11, 0xbcc0(%%r11, %%r10) \n clwb 0xbcc0(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm12, 0xbd00(%%r11, %%r10) \n clwb 0xbd00(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm13, 0xbd40(%%r11, %%r10) \n clwb 0xbd40(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm14, 0xbd80(%%r11, %%r10) \n clwb 0xbd80(%%r11, %%r10) \n" \
+                "vmovdqa64 %%zmm15, 0xbdc0(%%r11, %%r10) \n clwb 0xbdc0(%%r11, %%r10) \n"
 
 #define LD_x32_RAND_AVX512 \
                 "vmovdqa64 0x7b40(%%r11, %%r10), %%zmm0 \n" \
@@ -427,6 +674,24 @@ void dump_zmm(char* dst, uint64_t size);
 
 //#define STWB_SFENCE_x16_RAND_AVX512
 
+#define CLEAR_STWB_x16_RAND_AVX512 \
+                "vmovdqa64  0x28c0(%%r11, %%r10), %%zmm0 \n" \
+                "vmovdqa64  0xc880(%%r11, %%r10), %%zmm1 \n" \
+                "vmovdqa64  0x3cc0(%%r11, %%r10), %%zmm2 \n" \
+                "vmovdqa64  0xdd40(%%r11, %%r10), %%zmm3 \n" \
+                "vmovdqa64  0x6bc0(%%r11, %%r10), %%zmm4 \n" \
+                "vmovdqa64  0xe600(%%r11, %%r10), %%zmm5 \n" \
+                "vmovdqa64  0x1c0(%%r11, %%r10), %%zmm6 \n" \
+                "vmovdqa64  0xf540(%%r11, %%r10), %%zmm7 \n" \
+                "vmovdqa64  0x11c0(%%r11, %%r10), %%zmm8 \n" \
+                "vmovdqa64  0xb000(%%r11, %%r10), %%zmm9 \n" \
+                "vmovdqa64  0x3f80(%%r11, %%r10), %%zmm10 \n" \
+                "vmovdqa64  0x5c40(%%r11, %%r10), %%zmm11 \n" \
+                "vmovdqa64  0xed00(%%r11, %%r10), %%zmm12 \n" \
+                "vmovdqa64  0xd600(%%r11, %%r10), %%zmm13 \n" \
+                "vmovdqa64  0x4c80(%%r11, %%r10), %%zmm14 \n" \
+                "vmovdqa64  0xb280(%%r11, %%r10), %%zmm15 \n"
+
 #define STWB_x16_RAND_AVX512 \
                 "vmovdqa64  %%zmm0,  0x28c0(%%r11, %%r10) \n clwb 0x28c0(%%r11, %%r10) \n" \
                 "vmovdqa64  %%zmm1,  0xc880(%%r11, %%r10) \n clwb 0xc880(%%r11, %%r10) \n" \
@@ -444,6 +709,43 @@ void dump_zmm(char* dst, uint64_t size);
                 "vmovdqa64  %%zmm13,  0xd600(%%r11, %%r10) \n clwb 0xd600(%%r11, %%r10) \n" \
                 "vmovdqa64  %%zmm14,  0x4c80(%%r11, %%r10) \n clwb 0x4c80(%%r11, %%r10) \n" \
                 "vmovdqa64  %%zmm15,  0xb280(%%r11, %%r10) \n clwb 0xb280(%%r11, %%r10) \n"
+
+#define CLEAR_STWB_x16_SEQ_AVX512 \
+                "vmovdqa64 0xa880(%%r11, %%r10), %%zmm0 \n" \
+                "vmovdqa64 0xa8c0(%%r11, %%r10), %%zmm1 \n" \
+                "vmovdqa64 0xa900(%%r11, %%r10), %%zmm2 \n" \
+                "vmovdqa64 0xa940(%%r11, %%r10), %%zmm3 \n" \
+                "vmovdqa64 0xa980(%%r11, %%r10), %%zmm4 \n" \
+                "vmovdqa64 0xa9c0(%%r11, %%r10), %%zmm5 \n" \
+                "vmovdqa64 0xaa00(%%r11, %%r10), %%zmm6 \n" \
+                "vmovdqa64 0xaa40(%%r11, %%r10), %%zmm7 \n" \
+                "vmovdqa64 0xaa80(%%r11, %%r10), %%zmm8 \n" \
+                "vmovdqa64 0xaac0(%%r11, %%r10), %%zmm9 \n" \
+                "vmovdqa64 0xab00(%%r11, %%r10), %%zmm10 \n" \
+                "vmovdqa64 0xab40(%%r11, %%r10), %%zmm11 \n" \
+                "vmovdqa64 0xab80(%%r11, %%r10), %%zmm12 \n" \
+                "vmovdqa64 0xabc0(%%r11, %%r10), %%zmm13 \n" \
+                "vmovdqa64 0xac00(%%r11, %%r10), %%zmm14 \n" \
+                "vmovdqa64 0xac40(%%r11, %%r10), %%zmm15 \n"
+
+
+#define STWB_x16_SEQ_AVX512 \
+                "vmovdqa64  %%zmm0,  0xa880(%%r11, %%r10) \n clwb 0xa880(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm1,  0xa8c0(%%r11, %%r10) \n clwb 0xa8c0(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm2,  0xa900(%%r11, %%r10) \n clwb 0xa900(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm3,  0xa940(%%r11, %%r10) \n clwb 0xa940(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm4,  0xa980(%%r11, %%r10) \n clwb 0xa980(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm5,  0xa9c0(%%r11, %%r10) \n clwb 0xa9c0(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm6,  0xaa00(%%r11, %%r10) \n clwb 0xaa00(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm7,  0xaa40(%%r11, %%r10) \n clwb 0xaa40(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm8,  0xaa80(%%r11, %%r10) \n clwb 0xaa80(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm9,  0xaac0(%%r11, %%r10) \n clwb 0xaac0(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm10,  0xab00(%%r11, %%r10) \n clwb 0xab00(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm11,  0xab40(%%r11, %%r10) \n clwb 0xab40(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm12,  0xab80(%%r11, %%r10) \n clwb 0xab80(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm13,  0xabc0(%%r11, %%r10) \n clwb 0xabc0(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm14,  0xac00(%%r11, %%r10) \n clwb 0xac00(%%r11, %%r10) \n" \
+                "vmovdqa64  %%zmm15,  0xac40(%%r11, %%r10) \n clwb 0xac40(%%r11, %%r10) \n"
 
 /* temporal store */
 #define STWB_x32_RAND_AVX512 \
@@ -532,6 +834,25 @@ void dump_zmm(char* dst, uint64_t size);
 				"vmovdqa64  %%zmm13,  0x340(%%r9, %%r10) \n" \
 				"vmovdqa64  %%zmm14,  0x380(%%r9, %%r10) \n" \
 				"vmovdqa64  %%zmm15,  0x3c0(%%r9, %%r10) \n" \
+				"add $0x400, %%r10 \n"
+
+#define SIZEST_RAND_1024_AVX512	\
+                "vmovdqa64  %%zmm0,  0x3a80(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm1,  0x1c40(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm2,  0x2e00(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm3,  0x7d80(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm4,  0x4b40(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm5,  0x6c80(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm6,  0x5f00(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm7,  0x380(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm8,  0x8c40(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm9,  0x9e80(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm10,  0x5400(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm11,  0x1240(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm12,  0x6a00(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm13,  0x3c40(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm14,  0x7f00(%%r9, %%r10) \n" \
+                "vmovdqa64  %%zmm15,  0x2580(%%r9, %%r10) \n" \
 				"add $0x400, %%r10 \n"
 
 /* perform movdir64B */

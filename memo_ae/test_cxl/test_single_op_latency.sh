@@ -12,7 +12,7 @@ test_single_op_lats() {
             mkdir -p $CURR_RESULT_PATH
 
             echo "[TEST] op: $j node: $k......"
-            LINE=`sudo ../src/cxlMemTest -p $CLOSEST_CORE -t 1 -S 1 -n $k -T 0 -o $j -i $ITERATION -F $TSC_FREQ | awk '/Median latency/ {print}'`
+            LINE=`sudo ../src/cxlMemTest -p $CLOSEST_CORE -t 1 -S 15 -n $k -T 0 -o $j -i $ITERATION -F $TSC_FREQ | awk '/Median latency/ {print}'`
             echo $LINE
 
             LATS=`echo $LINE | awk '{print $(NF-2)}' | grep -Eo '[+-]?[0-9]+([.][0-9]+)?'`

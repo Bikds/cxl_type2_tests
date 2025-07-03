@@ -36,7 +36,11 @@ typedef enum test_op {
     WRITE,
     WRITE_NT,
     MOV,
-    MIXED  /* mix read and write */
+    MIXED, /* mix read and write */
+    SEQ_READ,
+    SEQ_READ_NT,
+    SEQ_WRITE,
+    SEQ_WRITE_NT 
 } test_op_t;
 
 typedef enum test_type {

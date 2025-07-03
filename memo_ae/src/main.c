@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <numa.h>
 #include <numaif.h>
+#include <sys/mman.h>
 
 int main(int argc, char*argv[]) {
     int ret;
@@ -32,33 +33,34 @@ int main(int argc, char*argv[]) {
         }
     }
 
-    if (cfg->op == MOV) {
-        ret = init_buf(cfg->total_buf_size, cfg->buf_b_numa_node, &(cfg->buf_b));
-        if (ret < 0) {
-            if (ret == -1) {
-                printf("BAD init_buf buf_b, fail to alloc\n");
-                goto out1; // free buf_a
-            } else { // already alloc, needs to free
-                printf("BAD init_buf buf_b, alloc strange\n");
-                goto out2; // free buf_b then buf_a
-            }
-        }
-    }
+    // if (cfg->op == MOV) {
+    //     ret = init_buf(cfg->total_buf_size, cfg->buf_b_numa_node, &(cfg->buf_b));
+    //     if (ret < 0) {
+    //         if (ret == -1) {
+    //             printf("BAD init_buf buf_b, fail to alloc\n");
+    //             goto out1; // free buf_a
+    //         } else { // already alloc, needs to free
+    //             printf("BAD init_buf buf_b, alloc strange\n");
+    //             goto out2; // free buf_b then buf_a
+    //         }
+    //     }
+    // }
 
     ret = run_test(cfg);
 
-    ret = get_node(cfg->buf_a, cfg->total_buf_size);
-    printf("end, buf_a is on node %d\n", ret);
+//     ret = get_node(cfg->buf_a, cfg->total_buf_size);
+//     printf("end, buf_a is on node %d\n", ret);
 
-    if (cfg->op == MOV) {
-        ret = get_node(cfg->buf_b, cfg->total_buf_size);
-        printf("end, buf_b is on node %d\n", ret);
-    }
+//     if (cfg->op == MOV) {
+//         ret = get_node(cfg->buf_b, cfg->total_buf_size);
+//         printf("end, buf_b is on node %d\n", ret);
+//     }
 
-out2:
-    numa_free(cfg->buf_b, cfg->total_buf_size);
+// out2:
+//     numa_free(cfg->buf_b, cfg->total_buf_size);
 out1:
-    numa_free(cfg->buf_a, cfg->total_buf_size);
+    // numa_free(cfg->buf_a, cfg->total_buf_size);
+    munmap(cfg->buf_a, cfg->total_buf_size);
 out:
     free(cfg);
     return 0;	
